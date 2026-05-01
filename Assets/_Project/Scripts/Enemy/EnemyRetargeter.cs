@@ -10,25 +10,13 @@ public class EnemyRetargeter : MonoBehaviour
     {
         List<PlayerBase> bases = RuntimeWorld.Bases.GetValidTargets();
 
-        if (bases == null || bases.Count == 0)
+        if (bases != null && bases.Count != 0)
         {
-            OnNoTargetsRemaining?.Invoke();
-            return null;
+            return TargetingUtility.GetClosest(bases, fromPosition);
         }
+        
+        OnNoTargetsRemaining?.Invoke();
+        return null;
 
-        PlayerBase best = null;
-        float bestDistance = float.MaxValue;
-
-        foreach (var playerBase in bases)
-        {
-            float distance = Vector3.Distance(fromPosition, playerBase.transform.position);
-
-            if (!(distance < bestDistance)) continue;
-            
-            bestDistance = distance;
-            best = playerBase;
-        }
-
-        return best;
     }
 }

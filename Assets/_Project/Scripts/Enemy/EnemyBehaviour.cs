@@ -41,8 +41,12 @@ public class EnemyBehaviour : MonoBehaviour, IPoolable
         
         pathAgent.ResetAgent();
         pathAgent.ForceSetStartNode(spawnNode);
-        
         pathAgent.SetTarget(target as PlayerBase);
+        
+        if (retargeter)
+        {
+            retargeter.OnNoTargetsRemaining += HandleNoTargets;
+        }
 
         gameObject.SetActive(true);
     }

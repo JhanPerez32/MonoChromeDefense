@@ -60,19 +60,25 @@ public class EnemySpawner : MonoBehaviour
 
     private void SpawnEnemy(List<PlayerBase> bases)
     {
-        PlayerBase targetBase = bases[Random.Range(0, bases.Count)];
+        PlayerBase targetBase = RandomUtility.GetRandom(bases);
         if (!targetBase) return;
+        
+        WeightedEnemy selected = RandomUtility.GetWeighted(CurrentWave.enemies, weightedEnemy => weightedEnemy.weight);
 
-        EnemyBehaviour prefab = GetWeightedEnemy(CurrentWave.enemies);
+        if (selected == null || !selected.enemy)
+        {
+            Debug.LogWarning("No valid enemy selected!");
+            return;
+        }
 
-        EnemyBehaviour enemy = poolFactory.Get(prefab);
+        EnemyBehaviour enemy = poolFactory.Get(selected.enemy);
 
         if (!enemy)
         {
             Debug.LogWarning("Pool exhausted!");
             return;
         }
-        
+
         enemy.SetPoolFactory(poolFactory);
         enemy.SetSpawner(this);
         enemy.Initialize(targetBase, spawnNode);
@@ -94,29 +100,5 @@ public class EnemySpawner : MonoBehaviour
         _timer = 0f;
 
         Debug.Log("Next Wave: " + _currentWaveIndex);
-    }
-
-    private EnemyBehaviour GetWeightedEnemy(List<WeightedEnemy> list)
-    {
-        float total = 0f;
-
-        foreach (var weightedEnemy in list)
-        {
-            total += weightedEnemy.weight;
-        }
-
-        float random = Random.Range(0f, total);
-        float current = 0f;
-
-        foreach (var weightedEnemy in list)
-        {
-            current += weightedEnemy.weight;
-            if (random <= current)
-            {
-                return weightedEnemy.enemy;
-            }
-        }
-
-        return list[0].enemy;
     }
 }
