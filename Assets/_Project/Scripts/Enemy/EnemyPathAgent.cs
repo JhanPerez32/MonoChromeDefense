@@ -18,6 +18,8 @@ public class EnemyPathAgent : MonoBehaviour
     private List<PathNode> _path;
     private int _index;
     
+    public PathNode CurrentNode => _currentNode;
+    
     private void OnEnable()
     {
         playerBaseDeathEvent?.Register(OnAnyDeath);
@@ -51,6 +53,30 @@ public class EnemyPathAgent : MonoBehaviour
         
         transform.position = targetNode.transform.position;
         _currentNode = targetNode;
+        
+        if (targetNode.attachedBase && targetNode.attachedBase.IsActive())
+        {
+            // If this base is not our current target > it blocks us
+            if (targetNode.attachedBase != _target)
+            {
+                Debug.Log($"{name}: Blocked by {targetNode.attachedBase.name}");
+
+                // Switch target to blocking base
+                _target = targetNode.attachedBase;
+                
+                if (enemyBehaviour)
+                {
+                    enemyBehaviour.SetTarget(_target);
+                }
+
+                // Stop movement path
+                _path = null;
+
+                // Attack immediately
+                enemyBehaviour.DealDamage();
+                return;
+            }
+        }
 
         bool isLastNode = (_index >= _path.Count - 1);
 
@@ -66,6 +92,11 @@ public class EnemyPathAgent : MonoBehaviour
     public void SetTarget(PlayerBase target)
     {
         _target = target;
+        
+        if (enemyBehaviour)
+        {
+            enemyBehaviour.SetTarget(target);
+        }
 
         if (!_target)
         {

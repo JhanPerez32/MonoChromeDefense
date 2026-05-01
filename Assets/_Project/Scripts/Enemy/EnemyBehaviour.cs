@@ -72,8 +72,12 @@ public class EnemyBehaviour : MonoBehaviour, IPoolable
         }
 
         _target = newTarget;
-
         pathAgent.SetTarget(newTarget);
+    }
+    
+    public void SetTarget(IDamageable newTarget)
+    {
+        _target = newTarget;
     }
 
     private void HandleNoTargets()
