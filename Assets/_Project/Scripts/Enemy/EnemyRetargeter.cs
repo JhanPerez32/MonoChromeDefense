@@ -10,12 +10,13 @@ public class EnemyRetargeter : MonoBehaviour
     {
         List<PlayerBase> bases = RuntimeWorld.Bases.GetValidTargets();
 
-        if (bases == null || bases.Count == 0)
+        if (bases != null && bases.Count != 0)
         {
-            OnNoTargetsRemaining?.Invoke();
-            return null;
+            return TargetingUtility.GetClosest(bases, fromPosition);
         }
+        
+        OnNoTargetsRemaining?.Invoke();
+        return null;
 
-        return TargetingUtility.GetClosest(bases, fromPosition);
     }
 }

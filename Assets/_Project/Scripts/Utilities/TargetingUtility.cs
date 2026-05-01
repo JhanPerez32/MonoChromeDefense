@@ -17,11 +17,10 @@ public static class TargetingUtility
 
             float distance = (item.transform.position - fromPosition).sqrMagnitude;
 
-            if (distance < bestDistance)
-            {
-                bestDistance = distance;
-                best = item;
-            }
+            if (!(distance < bestDistance)) continue;
+            
+            bestDistance = distance;
+            best = item;
         }
 
         return best;
