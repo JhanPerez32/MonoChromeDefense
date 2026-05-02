@@ -17,6 +17,5 @@ public class EnemyRetargeter : MonoBehaviour
         
         OnNoTargetsRemaining?.Invoke();
         return null;
-
     }
 }
