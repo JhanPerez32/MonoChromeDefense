@@ -20,9 +20,6 @@ MonoBehaviour:
     spawnCount: 10
     spawnInterval: 1
   - enemies:
-    - enemy: {fileID: 3330135627387736020, guid: 83453fd5fb0fb1445a9122d18d17cdc7, type: 3}
-      weight: 0.2
-      poolSize: 5
     - enemy: {fileID: 3330135627387736020, guid: 4019e27cdf25b6d408c1b12806a9b7cc, type: 3}
       weight: 0.8
       poolSize: 5
