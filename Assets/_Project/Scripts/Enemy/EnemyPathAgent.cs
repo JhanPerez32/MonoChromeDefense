@@ -32,8 +32,7 @@ public class EnemyPathAgent : MonoBehaviour
     
     private void Update()
     {
-        if (_path == null || _path.Count == 0) return;
-        if (_index >= _path.Count) return;
+        if (!HasValidPath()) return;
 
         MoveAlongPath();
     }
@@ -43,60 +42,72 @@ public class EnemyPathAgent : MonoBehaviour
         PathNode targetNode = _path[_index];
         if (!targetNode) return;
 
+        MoveTo(targetNode);
+
+        if (!Reached(targetNode)) return;
+
+        OnNodeReached(targetNode);
+    }
+    
+    private void MoveTo(PathNode node)
+    {
         transform.position = Vector3.MoveTowards(
             transform.position,
-            targetNode.transform.position,
+            node.transform.position,
             moveSpeed * Time.deltaTime
         );
-        
-        if ((transform.position - targetNode.transform.position).sqrMagnitude > 0.01f) return;
-        
-        transform.position = targetNode.transform.position;
-        _currentNode = targetNode;
-        
-        if (targetNode.attachedBase && targetNode.attachedBase.IsActive())
+    }
+    
+    private bool Reached(PathNode node)
+    {
+        return (transform.position - node.transform.position).sqrMagnitude <= 0.01f;
+    }
+    
+    private void OnNodeReached(PathNode node)
+    {
+        transform.position = node.transform.position;
+        _currentNode = node;
+
+        // Blocking logic
+        if (TryHandleBlockingBase(node)) return;
+
+        // End of path
+        if (IsLastNode())
         {
-            // If this base is not our current target > it blocks us
-            if (targetNode.attachedBase != _target)
-            {
-                Debug.Log($"{name}: Blocked by {targetNode.attachedBase.name}");
-
-                // Switch target to blocking base
-                _target = targetNode.attachedBase;
-                
-                if (enemyBehaviour)
-                {
-                    enemyBehaviour.SetTarget(_target);
-                }
-
-                // Stop movement path
-                _path = null;
-
-                // Attack immediately
-                enemyBehaviour.DealDamage();
-                return;
-            }
-        }
-
-        bool isLastNode = (_index >= _path.Count - 1);
-
-        if (isLastNode)
-        {
-            _path = null;
-            enemyBehaviour.DealDamage();
+            AttackTarget();
+            return;
         }
 
         _index++;
     }
     
+    private bool TryHandleBlockingBase(PathNode node)
+    {
+        PlayerBase nodeBase = node.attachedBase;
+
+        if (!nodeBase || !nodeBase.IsActive())
+        {
+            return false;
+        }
+
+        if (nodeBase == _target)
+        {
+            return false;
+        }
+
+        Debug.Log($"{name}: Blocked by {nodeBase.name}");
+
+        SetTargetInternal(nodeBase);
+
+        StopPath();
+        AttackTarget();
+
+        return true;
+    }
+    
     public void SetTarget(PlayerBase target)
     {
-        _target = target;
-        
-        if (enemyBehaviour)
-        {
-            enemyBehaviour.SetTarget(target);
-        }
+        SetTargetInternal(target);
 
         if (!_target)
         {
@@ -106,38 +117,20 @@ public class EnemyPathAgent : MonoBehaviour
 
         RecalculatePath();
     }
-
-    public void ForceSetStartNode(PathNode node)
+    
+    private void SetTargetInternal(PlayerBase target)
     {
-        _currentNode = node;
-    }
+        _target = target;
 
-    public void ResetAgent()
-    {
-        _path = null;
-        _target = null;
-        _index = 0;
+        if (enemyBehaviour)
+        {
+            enemyBehaviour.SetTarget(target);
+        }
     }
     
     private void RecalculatePath()
     {
-        if (!_target)
-        {
-            Debug.LogWarning($"{name}: No target");
-            return;
-        }
-
-        if (!_currentNode)
-        {
-            Debug.LogWarning($"{name}: No start node");
-            return;
-        }
-
-        if (!_target.entryNode)
-        {
-            Debug.LogWarning($"{name}: Target has no entry node");
-            return;
-        }
+        if (!IsValidForPath()) return;
 
         PathNode startNode = GetRepathStartNode();
 
@@ -154,11 +147,54 @@ public class EnemyPathAgent : MonoBehaviour
         Debug.Log($"{name}: Path created with {_path.Count} nodes");
     }
     
+    private bool IsValidForPath()
+    {
+        if (!_target)
+        {
+            Debug.LogWarning($"{name}: No target");
+            return false;
+        }
+
+        if (!_currentNode)
+        {
+            Debug.LogWarning($"{name}: No start node");
+            return false;
+        }
+
+        if (!_target.entryNode)
+        {
+            Debug.LogWarning($"{name}: Target has no entry node");
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool HasValidPath()
+    {
+        return _path != null && _path.Count > 0 && _index < _path.Count;
+    }
+
+    private bool IsLastNode()
+    {
+        return _index >= _path.Count - 1;
+    }
+
+    private void StopPath()
+    {
+        _path = null;
+    }
+
+    private void AttackTarget()
+    {
+        StopPath();
+        enemyBehaviour.DealDamage();
+    }
+
+    //Repath
     private void OnAnyDeath(IDamageable dead)
     {
-        PlayerBase deadBase = dead as PlayerBase;
-        if (!deadBase) return;
-
+        if (dead is not PlayerBase deadBase) return;
         if (_target != deadBase) return;
 
         StartCoroutine(RepathRoutine());
@@ -172,14 +208,24 @@ public class EnemyPathAgent : MonoBehaviour
 
         RecalculatePath();
     }
-    
+
     private PathNode GetRepathStartNode()
     {
         if (_path != null && _index < _path.Count)
-        {
             return _path[_index];
-        }
 
         return _currentNode;
+    }
+    
+    public void ForceSetStartNode(PathNode node)
+    {
+        _currentNode = node;
+    }
+
+    public void ResetAgent()
+    {
+        _path = null;
+        _index = 0;
+        SetTargetInternal(null);
     }
 }
