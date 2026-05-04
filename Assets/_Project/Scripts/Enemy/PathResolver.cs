@@ -3,71 +3,135 @@ using UnityEngine;
 
 public static class PathResolver
 {
-    public static List<PathNode> FindPath(PathNode start, PathNode goal)
+    public static List<PathNode> FindPath(PathNode start, PathNode target, PathPreferenceTypeEnum preference)
     {
-        var open = new List<PathNode> { start };
-        var cameFrom = new Dictionary<PathNode, PathNode>();
-        var cost = new Dictionary<PathNode, float> { [start] = 0 };
-
-        while (open.Count > 0)
+        if (!start || !target)
         {
-            var current = GetLowest(open, cost);
+            return null;
+        }
 
-            if (current == goal)
+        var openSet = new List<PathNode> { start };
+        var cameFrom = new Dictionary<PathNode, PathNode>();
+
+        var gScore = new Dictionary<PathNode, float>();
+        var fScore = new Dictionary<PathNode, float>();
+
+        gScore[start] = 0;
+        fScore[start] = Heuristic(start, target);
+
+        while (openSet.Count > 0)
+        {
+            PathNode current = GetLowestFScore(openSet, fScore);
+
+            if (current == target)
             {
-                return Reconstruct(cameFrom, current);
+                return ReconstructPath(cameFrom, current);
             }
 
-            open.Remove(current);
+            openSet.Remove(current);
 
-            foreach (var next in current.outgoing)
+            foreach (var neighbor in current.outgoing)
             {
-                if (!next) continue;
+                float cost = Distance(current, neighbor);
 
-                float newCost = cost[current] + Vector3.Distance(current.Position, next.Position);
-
-                if (cost.ContainsKey(next) && cost[next] <= newCost) continue;
-
-                cost[next] = newCost;
-                cameFrom[next] = current;
-
-                if (!open.Contains(next))
+                // NEW: node cost system
+                if (neighbor.costData)
                 {
-                    open.Add(next);
+                    cost += neighbor.costData.GetTotalCost();
+                }
+
+                // Preference influence
+                cost += GetPreferenceCost(neighbor, preference);
+
+                float tentativeG = gScore[current] + cost;
+
+                if (gScore.ContainsKey(neighbor) && !(tentativeG < gScore[neighbor])) continue;
+                
+                cameFrom[neighbor] = current;
+                gScore[neighbor] = tentativeG;
+                fScore[neighbor] = tentativeG + Heuristic(neighbor, target);
+
+                if (!openSet.Contains(neighbor))
+                {
+                    openSet.Add(neighbor);
                 }
             }
         }
 
         return null;
     }
-
-    static PathNode GetLowest(List<PathNode> list, Dictionary<PathNode, float> cost)
+    
+    private static float Heuristic(PathNode a, PathNode b)
     {
-        PathNode best = null;
-        float bestCost = float.MaxValue;
+        return Vector3.Distance(a.transform.position, b.transform.position);
+    }
 
-        foreach (var pathNode in list)
+    private static float Distance(PathNode a, PathNode b)
+    {
+        return Vector3.Distance(a.transform.position, b.transform.position);
+    }
+
+    private static PathNode GetLowestFScore(List<PathNode> nodes, Dictionary<PathNode, float> fScore)
+    {
+        PathNode best = nodes[0];
+        float bestScore = fScore.ContainsKey(best) ? fScore[best] : float.MaxValue;
+
+        foreach (var pathNode in nodes)
         {
-            if (!(cost[pathNode] < bestCost)) continue;
+            float score = fScore.ContainsKey(pathNode) ? fScore[pathNode] : float.MaxValue;
+
+            if (!(score < bestScore)) continue;
+            
             best = pathNode;
-            bestCost = cost[pathNode];
+            bestScore = score;
         }
 
         return best;
     }
 
-    static List<PathNode> Reconstruct(Dictionary<PathNode, PathNode> came, PathNode current)
+    private static List<PathNode> ReconstructPath(Dictionary<PathNode, PathNode> cameFrom, PathNode current)
     {
-        var path = new List<PathNode>();
+        List<PathNode> path = new();
 
-        while (came.ContainsKey(current))
+        while (current)
         {
             path.Add(current);
-            current = came[current];
+            cameFrom.TryGetValue(current, out current);
         }
 
-        path.Add(current);
         path.Reverse();
         return path;
+    }
+    
+    private static float GetPreferenceCost(PathNode node, PathPreferenceTypeEnum preference)
+    {
+        float cost = 0f;
+
+        switch (preference)
+        {
+            case PathPreferenceTypeEnum.Random:
+                cost += Random.Range(0f, 1.5f);
+                break;
+
+            case PathPreferenceTypeEnum.Shortest:
+                // pure A*
+                break;
+
+            case PathPreferenceTypeEnum.Safest:
+                if (node.attachedBase)
+                {
+                    cost += 8f;
+                }
+                break;
+
+            case PathPreferenceTypeEnum.Aggressive:
+                if (node.attachedBase)
+                {
+                    cost -= 4f;
+                }
+                break;
+        }
+
+        return cost;
     }
 }

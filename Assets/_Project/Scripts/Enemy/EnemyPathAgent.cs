@@ -12,6 +12,7 @@ public class EnemyPathAgent : MonoBehaviour
     [SerializeField] private DeathEvent playerBaseDeathEvent;
 
     public EnemyBehaviour enemyBehaviour;
+    public PathPreferenceTypeEnum preference;
 
     private PathNode _currentNode;
     private PlayerBase _target;
@@ -134,7 +135,7 @@ public class EnemyPathAgent : MonoBehaviour
 
         PathNode startNode = GetRepathStartNode();
 
-        _path = PathResolver.FindPath(startNode, _target.entryNode);
+        _path = PathResolver.FindPath(startNode, _target.entryNode, preference);
 
         if (_path == null || _path.Count == 0)
         {

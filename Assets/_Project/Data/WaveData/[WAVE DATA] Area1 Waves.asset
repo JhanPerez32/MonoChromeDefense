@@ -14,14 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WaveData
   waves:
   - enemies:
+    - enemy: {fileID: 3330135627387736020, guid: 4019e27cdf25b6d408c1b12806a9b7cc, type: 3}
+      weight: 1
+      poolSize: 5
+    spawnCount: 10
+    spawnInterval: 0.5
+  - enemies:
     - enemy: {fileID: 3330135627387736020, guid: 83453fd5fb0fb1445a9122d18d17cdc7, type: 3}
       weight: 1
       poolSize: 10
     spawnCount: 10
     spawnInterval: 1
-  - enemies:
-    - enemy: {fileID: 3330135627387736020, guid: 4019e27cdf25b6d408c1b12806a9b7cc, type: 3}
-      weight: 0.8
-      poolSize: 5
-    spawnCount: 20
-    spawnInterval: 0.5

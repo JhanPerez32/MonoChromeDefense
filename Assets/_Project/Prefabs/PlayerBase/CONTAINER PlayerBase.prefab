@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 3003801314643330063}
   - component: {fileID: 6748718465456670628}
   - component: {fileID: 8284981459427099217}
+  - component: {fileID: 8189096768053626260}
   m_Layer: 0
   m_Name: CONTAINER BaseNode
   m_TagString: Untagged
@@ -47,9 +48,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PathNode
   incoming:
   - {fileID: 0}
-  - {fileID: 0}
   outgoing:
   - {fileID: 0}
+  - {fileID: 0}
+  costData: {fileID: 8189096768053626260}
   attachedBase: {fileID: 6962022628670374869}
 --- !u!114 &8284981459427099217
 MonoBehaviour:
@@ -67,6 +69,21 @@ MonoBehaviour:
   incomingColor: {r: 0, g: 1, b: 1, a: 1}
   outgoingColor: {r: 0, g: 1, b: 0, a: 1}
   size: 0.25
+--- !u!114 &8189096768053626260
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2010638373748317703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37c1ed9488ec85544bfaf129b8b6b188, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PathNodeCost
+  baseCost: 1
+  dangerCost: 0
+  movementPenalty: 0
 --- !u!1 &2541606236384718334
 GameObject:
   m_ObjectHideFlags: 0
@@ -146,7 +163,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerBase
   entryNode: {fileID: 6748718465456670628}
-  damageEvent: {fileID: 11400000, guid: 83334c82618d5c9468641b0cf427929e, type: 2}
   healthChangedEvent: {fileID: 11400000, guid: 821ead51f2a355946b4a6b126d788d79, type: 2}
   playerBaseDeathEvent: {fileID: 11400000, guid: a282aa99de13401458d9b8bede950aad, type: 2}
   statsUnit: {fileID: 11400000, guid: bba74321f5dda614fabdfa16438c23fa, type: 2}
