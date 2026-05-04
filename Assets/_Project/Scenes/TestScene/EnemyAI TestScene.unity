@@ -515,6 +515,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 288032134}
     - target: {fileID: 6962022628670374869, guid: c8026a33b88ece1439e405ca83f44b36, type: 3}
+      propertyPath: statsUnit
+      value: 
+      objectReference: {fileID: 11400000, guid: 94b67da4191792945b3d2ff30096d4da, type: 2}
+    - target: {fileID: 6962022628670374869, guid: c8026a33b88ece1439e405ca83f44b36, type: 3}
       propertyPath: damageEvent
       value: 
       objectReference: {fileID: 11400000, guid: 83334c82618d5c9468641b0cf427929e, type: 2}
@@ -1091,6 +1095,10 @@ PrefabInstance:
       propertyPath: 'outgoing.Array.data[1]'
       value: 
       objectReference: {fileID: 1558176190}
+    - target: {fileID: 6962022628670374869, guid: c8026a33b88ece1439e405ca83f44b36, type: 3}
+      propertyPath: statsUnit
+      value: 
+      objectReference: {fileID: 11400000, guid: ed3d94a91ab0b4147816a5ca991ebc32, type: 2}
     - target: {fileID: 6962022628670374869, guid: c8026a33b88ece1439e405ca83f44b36, type: 3}
       propertyPath: damageEvent
       value: 

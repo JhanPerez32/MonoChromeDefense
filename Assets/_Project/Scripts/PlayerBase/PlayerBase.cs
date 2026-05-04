@@ -44,6 +44,16 @@ public class PlayerBase : MonoBehaviour, ITargetable, IDamageable
     {
         healthChangedEvent.Raise(this, _currentHealth, _maxHealthRuntime);
     }
+    
+    public float GetCurrentHealth()
+    {
+        return _currentHealth;
+    }
+    
+    public float GetMaxHealth()
+    {
+        return _maxHealthRuntime;
+    }
 
     public void TakeDamage(float damageAmount)
     {
