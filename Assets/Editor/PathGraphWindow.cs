@@ -6,24 +6,12 @@ public class PathGraphWindow : EditorWindow
 {
     private readonly List<PathNode> _nodes = new();
 
-    private PathNode _selectedNode;
-
-    private Vector2 _offset;
-    private float _zoom = 1f;
-
-    private bool _isDragging;
-    private Vector2 _mouseDownPos;
+    private PathGraphContext _context;
+    private PathGraphInput _input = new();
 
     private const float DragThreshold = 5f;
-    
-    private enum ViewDirection
-    {
-        Top,
-        Bottom,
-        Left,
-        Right
-    }
 
+    private enum ViewDirection { Top, Bottom, Left, Right }
     private ViewDirection _view = ViewDirection.Top;
 
     [MenuItem("Tools/Path Graph")]
@@ -34,13 +22,19 @@ public class PathGraphWindow : EditorWindow
 
     private void OnEnable()
     {
+        _context = new PathGraphContext
+        {
+            GetNodeAtPosition = GetNodeAtPosition,
+            ShowContextMenu = ShowContextMenu
+        };
+
         RefreshNodes();
     }
 
     private void RefreshNodes()
     {
         _nodes.Clear();
-        _nodes.AddRange(FindObjectsOfType<PathNode>());
+        _nodes.AddRange(FindObjectsByType<PathNode>(FindObjectsSortMode.None));
     }
 
     private void OnGUI()
@@ -48,19 +42,27 @@ public class PathGraphWindow : EditorWindow
         HandleZoom(Event.current);
 
         DrawToolbar();
-
         DrawGrid(20, 0.15f, Color.gray);
         DrawGrid(100, 0.25f, Color.gray);
 
-        DrawOrientationGuide();
+        HandleInput(Event.current);
 
         DrawConnections();
         DrawNodes();
 
-        ProcessEvents(Event.current);
+        DrawNodeCounter();
 
         if (GUI.changed) Repaint();
     }
+
+    #region INPUT WRAPPER
+
+    private void HandleInput(Event e)
+    {
+        _input.Handle(_context, e);
+    }
+
+    #endregion
 
     #region TOOLBAR
 
@@ -68,19 +70,11 @@ public class PathGraphWindow : EditorWindow
     {
         GUILayout.BeginHorizontal(EditorStyles.toolbar);
 
-        if (GUILayout.Button("Refresh", EditorStyles.toolbarButton))
-        {
-            RefreshNodes();
-        }
-
-        if (GUILayout.Button("Deselect", EditorStyles.toolbarButton))
-        {
-            _selectedNode = null;
-        }
+        if (GUILayout.Button("Refresh", EditorStyles.toolbarButton)) RefreshNodes();
 
         if (GUILayout.Button("Center", EditorStyles.toolbarButton))
         {
-            CenterView();
+            _context.Offset = Vector2.zero;
         }
 
         GUILayout.FlexibleSpace();
@@ -108,12 +102,6 @@ public class PathGraphWindow : EditorWindow
         GUILayout.EndHorizontal();
     }
 
-    private void CenterView()
-    {
-        _offset = Vector2.zero;
-        _zoom = 1f;
-    }
-
     #endregion
 
     #region ZOOM
@@ -121,62 +109,20 @@ public class PathGraphWindow : EditorWindow
     private void HandleZoom(Event handleZoomEvent)
     {
         if (handleZoomEvent.type != EventType.ScrollWheel) return;
-        
-        float delta = -handleZoomEvent.delta.y * 0.05f;
-        float oldZoom = _zoom;
 
-        _zoom = Mathf.Clamp(_zoom + delta, 0.5f, 2.5f);
+        float delta = -handleZoomEvent.delta.y * 0.05f;
+        float oldZoom = _context.Zoom;
+
+        _context.Zoom = Mathf.Clamp(_context.Zoom + delta, 0.5f, 2.5f);
 
         Vector2 mouse = handleZoomEvent.mousePosition;
 
-        Vector2 before = (mouse - _offset) / oldZoom;
-        Vector2 after = (mouse - _offset) / _zoom;
+        Vector2 before = (mouse - _context.Offset) / oldZoom;
+        Vector2 after = (mouse - _context.Offset) / _context.Zoom;
 
-        _offset += (after - before) * _zoom;
+        _context.Offset += (after - before) * _context.Zoom;
 
         handleZoomEvent.Use();
-    }
-
-    #endregion
-
-    #region INPUT (FIXED DRAG + SELECTION)
-
-    private void ProcessEvents(Event processEvent)
-    {
-        if (processEvent.type == EventType.MouseDown && processEvent.button == 0)
-        {
-            _mouseDownPos = processEvent.mousePosition;
-            _isDragging = false;
-
-            _selectedNode = GetNodeAtPosition(processEvent.mousePosition);
-
-            processEvent.Use();
-        }
-
-        if (processEvent.type == EventType.MouseDrag && processEvent.button == 0)
-        {
-            if ((processEvent.mousePosition - _mouseDownPos).magnitude > DragThreshold)
-            {
-                _isDragging = true;
-                _offset += processEvent.delta;
-                processEvent.Use();
-            }
-        }
-
-        if (processEvent.type == EventType.MouseUp && processEvent.button == 0)
-        {
-            _isDragging = false;
-        }
-
-        if (processEvent.type != EventType.MouseDown || processEvent.button != 1) return;
-        PathNode target = GetNodeAtPosition(processEvent.mousePosition);
-
-        if (target)
-        {
-            ShowContextMenu(target);
-        }
-
-        processEvent.Use();
     }
 
     #endregion
@@ -185,38 +131,28 @@ public class PathGraphWindow : EditorWindow
 
     private void DrawNodes()
     {
+        var style = PathGraphUtils.GetNodeStyle();
+
         foreach (var node in _nodes)
         {
             if (!node) continue;
 
             Vector2 pos = WorldToGUI(node.transform.position);
+            Rect rect = PathGraphUtils.GetNodeRect(pos, node.name);
 
-            float width = Mathf.Clamp(node.name.Length * 7f, 120f, 320f);
-            float height = 55f;
+            GUI.Box(rect, GetLabel(node), style);
 
-            Rect rect = new Rect(
-                pos.x - width * 0.5f,
-                pos.y - height * 0.5f,
-                width,
-                height
-            );
-
-            GUI.color = (node == _selectedNode) ? Color.yellow : Color.white;
-
-            GUIStyle style = new GUIStyle(GUI.skin.box)
+            if (node == _context.SelectedNode)
             {
-                alignment = TextAnchor.MiddleCenter,
-                wordWrap = true
-            };
-
-            string label =
-                $"{node.name}\n" +
-                $"({node.transform.position.x:F1}, {node.transform.position.y:F1}, {node.transform.position.z:F1})";
-
-            GUI.Box(rect, label, style);
-
-            GUI.color = Color.white;
+                Handles.DrawSolidRectangleWithOutline(rect, Color.clear, Color.yellow);
+            }
         }
+    }
+
+    private string GetLabel(PathNode node)
+    {
+        var vector3 = node.transform.position;
+        return $"{node.name}\n({vector3.x:F1}, {vector3.y:F1}, {vector3.z:F1})";
     }
 
     #endregion
@@ -227,37 +163,53 @@ public class PathGraphWindow : EditorWindow
     {
         Handles.BeginGUI();
 
+        HashSet<(PathNode, PathNode)> drawn = new();
+        float laneGap = 6f;
+
         foreach (var node in _nodes)
         {
             if (!node) continue;
-
-            Vector2 from = WorldToGUI(node.transform.position);
 
             foreach (var target in node.outgoing)
             {
                 if (!target) continue;
 
-                DrawArrow(from, WorldToGUI(target.transform.position), Color.red);
-            }
+                var nodeTarget = (node, target);
+                if (!drawn.Add(nodeTarget)) continue;
 
-            foreach (var incoming in node.incoming)
-            {
-                if (!incoming) continue;
+                Vector2 from = WorldToGUI(node.transform.position);
+                Vector2 to = WorldToGUI(target.transform.position);
 
-                DrawArrow(WorldToGUI(incoming.transform.position), from, Color.green);
+                bool hasReverse = target.outgoing.Contains(node);
+
+                if (hasReverse)
+                {
+                    DrawArrow(from, to, Color.green, -laneGap);
+                    DrawArrow(to, from, Color.red, -laneGap);
+
+                    drawn.Add((target, node));
+                }
+                else
+                {
+                    // One-way outgoing = green, centered
+                    DrawArrow(from, to, Color.green, 0f);
+                }
             }
         }
 
         Handles.EndGUI();
-    }
 
-    private void DrawArrow(Vector2 from, Vector2 to, Color color)
+    }
+    
+    private void DrawArrow(Vector2 from, Vector2 to, Color color, float sideOffset)
     {
         Vector2 dir = (to - from).normalized;
         Vector2 perp = new Vector2(-dir.y, dir.x);
 
-        Vector2 start = from + perp * 6f;
-        Vector2 end = to + perp * 6f;
+        float nodePadding = 30f;
+
+        Vector2 start = from + dir * nodePadding + perp * sideOffset;
+        Vector2 end = to - dir * nodePadding + perp * sideOffset;
 
         Handles.color = color;
         Handles.DrawLine(start, end);
@@ -282,89 +234,122 @@ public class PathGraphWindow : EditorWindow
 
     #endregion
 
-    #region VIEW (TRUE SCENE-LIKE PROJECTION)
+    #region VIEW (FLATTENED)
 
     Vector2 WorldToGUI(Vector3 world)
     {
-        Vector3 vector3;
+        Vector2 flat;
 
         switch (_view)
         {
             case ViewDirection.Top:
-                // Scene View Top = looking from +Y
-                vector3 = new Vector3(world.x, -world.z, 0);
+                flat = new Vector2(world.x, -world.z);
                 break;
-
             case ViewDirection.Bottom:
-                vector3 = new Vector3(world.x, world.z, 0);
+                flat = new Vector2(world.x, world.z);
                 break;
-
             case ViewDirection.Left:
-                vector3 = new Vector3(world.z, -world.x, 0);
+                flat = new Vector2(world.z, 0);
                 break;
-
             case ViewDirection.Right:
-                vector3 = new Vector3(-world.z, -world.x, 0);
+                flat = new Vector2(-world.z, 0);
                 break;
-
             default:
-                vector3 = new Vector3(world.x, -world.z, 0);
+                flat = new Vector2(world.x, -world.z);
                 break;
         }
 
-        return (new Vector2(vector3.x, vector3.y) * (50f * _zoom))
-               + _offset
+        return (flat * (50f * _context.Zoom))
+               + _context.Offset
                + new Vector2(position.width * 0.5f, position.height * 0.5f);
     }
 
     #endregion
 
-    #region ORIENTATION GUIDE
-
-    private void DrawOrientationGuide()
-    {
-        Handles.BeginGUI();
-
-        Vector2 c = new Vector2(100, 80);
-
-        Handles.color = Color.green;
-        Handles.DrawLine(c, c + Vector2.up * 30);
-        Handles.Label(c + Vector2.up * 40, "TOP / +Z");
-
-        Handles.color = Color.red;
-        Handles.DrawLine(c, c + Vector2.down * 30);
-        Handles.Label(c + Vector2.down * 40, "BOTTOM / -Z");
-
-        Handles.color = Color.blue;
-        Handles.DrawLine(c, c + Vector2.right * 30);
-        Handles.Label(c + Vector2.right * 40, "RIGHT / +X");
-
-        Handles.color = Color.yellow;
-        Handles.DrawLine(c, c + Vector2.left * 30);
-        Handles.Label(c + Vector2.left * 40, "LEFT / -X");
-
-        Handles.EndGUI();
-    }
-
-    #endregion
-
-    #region HELPERS
+    #region NODE PICKING
 
     PathNode GetNodeAtPosition(Vector2 mousePos)
     {
         foreach (var node in _nodes)
         {
             Vector2 pos = WorldToGUI(node.transform.position);
-
-            float width = Mathf.Clamp(node.name.Length * 7f, 120f, 320f);
-
-            Rect rect = new Rect(pos.x - width * 0.5f, pos.y - 25f, width, 55f);
+            Rect rect = PathGraphUtils.GetNodeRect(pos, node.name);
 
             if (rect.Contains(mousePos))
+            {
                 return node;
+            }
         }
 
         return null;
+    }
+
+    #endregion
+
+    #region CONTEXT MENU
+
+    private void ShowContextMenu(PathNode target)
+    {
+        GenericMenu menu = new GenericMenu();
+
+        if (_context.SelectedNode && _context.SelectedNode != target)
+        {
+            menu.AddItem(new GUIContent("Connect Selected → This"), false, () =>
+            {
+                Connect(_context.SelectedNode, target);
+            });
+        }
+
+        if (_context.SelectedNode && _context.SelectedNode != target)
+        {
+            if (_context.SelectedNode.outgoing.Contains(target))
+            {
+                menu.AddItem(new GUIContent("Disconnect Selected → This"), false, () =>
+                {
+                    Disconnect(_context.SelectedNode, target);
+                });
+            }
+        }
+
+        menu.ShowAsContext();
+    }
+
+    private void Connect(PathNode pathNodeA, PathNode pathNodeB)
+    {
+        Undo.RecordObject(pathNodeA, "Connect");
+        Undo.RecordObject(pathNodeB, "Connect");
+
+        if (!pathNodeA.outgoing.Contains(pathNodeB))
+        {
+            pathNodeA.outgoing.Add(pathNodeB);
+        }
+
+        if (!pathNodeB.incoming.Contains(pathNodeA))
+        {
+            pathNodeB.incoming.Add(pathNodeA);
+        }
+
+        EditorUtility.SetDirty(pathNodeA);
+        EditorUtility.SetDirty(pathNodeB);
+    }
+    
+    private void Disconnect(PathNode pathNodeA, PathNode pathNodeB)
+    {
+        Undo.RecordObject(pathNodeA, "Disconnect Nodes");
+        Undo.RecordObject(pathNodeB, "Disconnect Nodes");
+
+        if (pathNodeA.outgoing.Contains(pathNodeB))
+        {
+            pathNodeA.outgoing.Remove(pathNodeB);
+        }
+
+        if (pathNodeB.incoming.Contains(pathNodeA))
+        {
+            pathNodeB.incoming.Remove(pathNodeA);
+        }
+
+        EditorUtility.SetDirty(pathNodeA);
+        EditorUtility.SetDirty(pathNodeB);
     }
 
     #endregion
@@ -377,25 +362,21 @@ public class PathGraphWindow : EditorWindow
 
         Handles.color = new Color(color.r, color.g, color.b, opacity);
 
-        Vector3 offsetGrid = new Vector3(_offset.x % spacing, _offset.y % spacing, 0);
+        Vector3 offsetGrid = new Vector3(_context.Offset.x % spacing, _context.Offset.y % spacing);
 
-        int w = Mathf.CeilToInt(position.width / spacing);
-        int h = Mathf.CeilToInt(position.height / spacing);
+        int width = Mathf.CeilToInt(position.width / spacing);
+        int height = Mathf.CeilToInt(position.height / spacing);
 
-        for (int i = 0; i < w; i++)
+        for (int i = 0; i < width; i++)
         {
-            Handles.DrawLine(
-                new Vector3(spacing * i, 0, 0) + offsetGrid,
-                new Vector3(spacing * i, position.height, 0) + offsetGrid
-            );
+            Handles.DrawLine(new Vector3(spacing * i, 0) + offsetGrid,
+                new Vector3(spacing * i, position.height) + offsetGrid);
         }
 
-        for (int j = 0; j < h; j++)
+        for (int j = 0; j < height; j++)
         {
-            Handles.DrawLine(
-                new Vector3(0, spacing * j, 0) + offsetGrid,
-                new Vector3(position.width, spacing * j, 0) + offsetGrid
-            );
+            Handles.DrawLine(new Vector3(0, spacing * j) + offsetGrid, 
+                new Vector3(position.width, spacing * j) + offsetGrid);
         }
 
         Handles.EndGUI();
@@ -403,56 +384,12 @@ public class PathGraphWindow : EditorWindow
 
     #endregion
 
-    #region CONNECTION LOGIC
+    #region UI COUNTER
 
-    private void ShowContextMenu(PathNode target)
+    private void DrawNodeCounter()
     {
-        GenericMenu menu = new GenericMenu();
-
-        if (_selectedNode && _selectedNode != target)
-        {
-            menu.AddItem(new GUIContent("Connect Selected → This"), false, () =>
-            {
-                Connect(_selectedNode, target);
-            });
-        }
-
-        if (_selectedNode && _selectedNode.outgoing.Contains(target))
-        {
-            menu.AddItem(new GUIContent("Delete Connection"), false, () =>
-            {
-                RemoveConnection(_selectedNode, target);
-            });
-        }
-
-        menu.ShowAsContext();
-    }
-
-    private void Connect(PathNode a, PathNode b)
-    {
-        Undo.RecordObject(a, "Connect Nodes");
-        Undo.RecordObject(b, "Connect Nodes");
-
-        if (!a.outgoing.Contains(b))
-            a.outgoing.Add(b);
-
-        if (!b.incoming.Contains(a))
-            b.incoming.Add(a);
-
-        EditorUtility.SetDirty(a);
-        EditorUtility.SetDirty(b);
-    }
-
-    private void RemoveConnection(PathNode pathNodeA, PathNode pathNodeB)
-    {
-        Undo.RecordObject(pathNodeA, "Remove Connection");
-        Undo.RecordObject(pathNodeB, "Remove Connection");
-
-        pathNodeA.outgoing.Remove(pathNodeB);
-        pathNodeB.incoming.Remove(pathNodeA);
-
-        EditorUtility.SetDirty(pathNodeA);
-        EditorUtility.SetDirty(pathNodeB);
+        Rect rect = new Rect(10, position.height - 40, 140, 30);
+        GUI.Box(rect, $"Nodes: {_nodes.Count}");
     }
 
     #endregion
