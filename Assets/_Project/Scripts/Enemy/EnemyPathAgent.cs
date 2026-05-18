@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 
 public class EnemyPathAgent : MonoBehaviour
@@ -11,7 +12,13 @@ public class EnemyPathAgent : MonoBehaviour
     [Header("Events")]
     [SerializeField] private DeathEvent playerBaseDeathEvent;
 
+    [Header("Components")]
     public EnemyBehaviour enemyBehaviour;
+    
+    [Header("AI Preferences")]
+    [SerializeField] private List<PathPreferenceScriptable> preferences;
+
+    private PathPreferenceScriptable _currentPreference;
 
     private PathNode _currentNode;
     private PlayerBase _target;
@@ -36,6 +43,42 @@ public class EnemyPathAgent : MonoBehaviour
 
         MoveAlongPath();
     }
+    
+     public void InitializePreference()
+    {
+        _currentPreference = ChoosePreference();
+    }
+
+    private PathPreferenceScriptable ChoosePreference()
+    {
+        if (preferences == null || preferences.Count == 0)
+        {
+            return null;
+        }
+
+        float totalWeight = 0f;
+
+        foreach (var pathPreferenceScriptable in preferences)
+        {
+            totalWeight += pathPreferenceScriptable.selectionWeight;
+        }
+
+        float roll = Random.Range(0, totalWeight);
+
+        float cumulative = 0f;
+
+        foreach (var pathPreferenceScriptable in preferences)
+        {
+            cumulative += pathPreferenceScriptable.selectionWeight;
+
+            if (roll <= cumulative)
+            {
+                return pathPreferenceScriptable;
+            }
+        }
+
+        return preferences[0];
+    }
 
     private void MoveAlongPath()
     {
@@ -48,7 +91,7 @@ public class EnemyPathAgent : MonoBehaviour
 
         OnNodeReached(targetNode);
     }
-    
+
     private void MoveTo(PathNode node)
     {
         transform.position = Vector3.MoveTowards(
@@ -57,21 +100,19 @@ public class EnemyPathAgent : MonoBehaviour
             moveSpeed * Time.deltaTime
         );
     }
-    
+
     private bool Reached(PathNode node)
     {
         return (transform.position - node.transform.position).sqrMagnitude <= 0.01f;
     }
-    
+
     private void OnNodeReached(PathNode node)
     {
         transform.position = node.transform.position;
         _currentNode = node;
 
-        // Blocking logic
         if (TryHandleBlockingBase(node)) return;
 
-        // End of path
         if (IsLastNode())
         {
             AttackTarget();
@@ -80,7 +121,7 @@ public class EnemyPathAgent : MonoBehaviour
 
         _index++;
     }
-    
+
     private bool TryHandleBlockingBase(PathNode node)
     {
         PlayerBase nodeBase = node.attachedBase;
@@ -104,9 +145,14 @@ public class EnemyPathAgent : MonoBehaviour
 
         return true;
     }
-    
+
     public void SetTarget(PlayerBase target)
     {
+        if (!target)
+        {
+            target = GetPreferredTarget();
+        }
+
         SetTargetInternal(target);
 
         if (!_target)
@@ -117,7 +163,103 @@ public class EnemyPathAgent : MonoBehaviour
 
         RecalculatePath();
     }
-    
+
+    private PlayerBase GetPreferredTarget()
+    {
+        List<PlayerBase> bases = RuntimeWorld.Bases.GetValidTargets();
+
+        if (bases == null || bases.Count == 0)
+        {
+            return null;
+        }
+
+        if (!_currentPreference)
+        {
+            return bases[Random.Range(0, bases.Count)];
+        }
+
+        switch (_currentPreference.targetPriority)
+        {
+            case TargetPriorityType.Closest:
+            {
+                return GetClosest(bases);
+            }
+
+            case TargetPriorityType.LowestHealth:
+            {
+                return GetLowestHealth(bases);
+            }
+
+            case TargetPriorityType.HighestHealth:
+            {
+                return GetHighestHealth(bases);
+            }
+
+            case TargetPriorityType.Random:
+            {
+                return bases[Random.Range(0, bases.Count)];
+            }
+        }
+
+        return null;
+    }
+
+    private PlayerBase GetClosest(List<PlayerBase> bases)
+    {
+        PlayerBase best = null;
+        float bestDist = float.MaxValue;
+
+        foreach (var playerBase in bases)
+        {
+            float distance = Vector3.Distance(transform.position, playerBase.transform.position);
+
+            if (!(distance < bestDist)) continue;
+            
+            bestDist = distance;
+            best = playerBase;
+        }
+
+        return best;
+    }
+
+    private PlayerBase GetLowestHealth(List<PlayerBase> bases)
+    {
+        PlayerBase best = null;
+        float lowestPlayerBaseHealth = float.MaxValue;
+
+        foreach (var playerBase in bases)
+        {
+            if (!playerBase.IsActive()) continue;
+
+            float playerBaseCurrentHealth = playerBase.GetCurrentHealth();
+
+            if (!(playerBaseCurrentHealth < lowestPlayerBaseHealth)) continue;
+            
+            lowestPlayerBaseHealth = playerBaseCurrentHealth;
+            best = playerBase;
+        }
+
+        return best;
+    }
+
+    private PlayerBase GetHighestHealth(List<PlayerBase> bases)
+    {
+        PlayerBase best = null;
+        float highestPlayerBaseHealth = float.MinValue;
+
+        foreach (var playerBase in bases)
+        {
+            float playerBaseMaxHealth = playerBase.GetMaxHealth();
+
+            if (!(playerBaseMaxHealth > highestPlayerBaseHealth)) continue;
+            
+            highestPlayerBaseHealth = playerBaseMaxHealth;
+            best = playerBase;
+        }
+
+        return best;
+    }
+
     private void SetTargetInternal(PlayerBase target)
     {
         _target = target;
@@ -128,13 +270,18 @@ public class EnemyPathAgent : MonoBehaviour
         }
     }
     
+
     private void RecalculatePath()
     {
         if (!IsValidForPath()) return;
 
         PathNode startNode = GetRepathStartNode();
 
-        _path = PathResolver.FindPath(startNode, _target.entryNode);
+        _path = PathResolver.FindPath(
+            startNode,
+            _target.entryNode,
+            _currentPreference ? _currentPreference.pathPreference : PathPreferenceTypeEnum.Random
+        );
 
         if (_path == null || _path.Count == 0)
         {
@@ -143,36 +290,16 @@ public class EnemyPathAgent : MonoBehaviour
         }
 
         _index = 0;
-
-        Debug.Log($"{name}: Path created with {_path.Count} nodes");
     }
-    
+
     private bool IsValidForPath()
     {
-        if (!_target)
-        {
-            Debug.LogWarning($"{name}: No target");
-            return false;
-        }
-
-        if (!_currentNode)
-        {
-            Debug.LogWarning($"{name}: No start node");
-            return false;
-        }
-
-        if (!_target.entryNode)
-        {
-            Debug.LogWarning($"{name}: Target has no entry node");
-            return false;
-        }
-
-        return true;
+        return _target && _currentNode && _target.entryNode;
     }
 
     private bool HasValidPath()
     {
-        return _path != null && _path.Count > 0 && _index < _path.Count;
+        return _path != null && _index < _path.Count;
     }
 
     private bool IsLastNode()
@@ -191,7 +318,6 @@ public class EnemyPathAgent : MonoBehaviour
         enemyBehaviour.DealDamage();
     }
 
-    //Repath
     private void OnAnyDeath(IDamageable dead)
     {
         if (dead is not PlayerBase deadBase) return;
@@ -206,17 +332,21 @@ public class EnemyPathAgent : MonoBehaviour
 
         if (!_target || !_currentNode) yield break;
 
+        _currentPreference = ChoosePreference();
+
         RecalculatePath();
     }
 
     private PathNode GetRepathStartNode()
     {
         if (_path != null && _index < _path.Count)
+        {
             return _path[_index];
+        }
 
         return _currentNode;
     }
-    
+
     public void ForceSetStartNode(PathNode node)
     {
         _currentNode = node;
@@ -226,6 +356,6 @@ public class EnemyPathAgent : MonoBehaviour
     {
         _path = null;
         _index = 0;
-        SetTargetInternal(null);
+        _target = null;
     }
 }

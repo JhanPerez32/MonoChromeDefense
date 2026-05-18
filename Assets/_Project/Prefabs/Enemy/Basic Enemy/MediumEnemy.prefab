@@ -167,3 +167,5 @@ MonoBehaviour:
   moveSpeed: 5
   playerBaseDeathEvent: {fileID: 11400000, guid: a282aa99de13401458d9b8bede950aad, type: 2}
   enemyBehaviour: {fileID: 3330135627387736020}
+  preferences:
+  - {fileID: 11400000, guid: 7b8bfe751c9de384ba0840296270c53f, type: 2}
