@@ -3240,6 +3240,7 @@ GameObject:
   - component: {fileID: 4853202937120412209}
   - component: {fileID: 6651634915460413635}
   - component: {fileID: 2630582366368602690}
+  - component: {fileID: 8508214147599924444}
   m_Layer: 5
   m_Name: SHOP Selection
   m_TagString: Untagged
@@ -3308,6 +3309,29 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8508214147599924444
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2214768151487668091}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d5ad3de8baa4b74a8c8c5d27f09e99d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UITabManager
+  turretShopTabs:
+  - tabType: {fileID: 11400000, guid: 2a8f89087df9bdc42800e5c368d207db, type: 2}
+    button: {fileID: 4056417010700901844}
+    panel: {fileID: 1478965880415923343}
+  - tabType: {fileID: 11400000, guid: 37da3afe6c97e7840927d2f57e524004, type: 2}
+    button: {fileID: 3151544822590832935}
+    panel: {fileID: 6402252330902494803}
+  - tabType: {fileID: 11400000, guid: f8838ada59b705c409a4c0eb5746e42f, type: 2}
+    button: {fileID: 8713068814149536042}
+    panel: {fileID: 8395430171551723128}
+  defaultTab: {fileID: 11400000, guid: 2a8f89087df9bdc42800e5c368d207db, type: 2}
 --- !u!1 &2558168320998097053
 GameObject:
   m_ObjectHideFlags: 0
