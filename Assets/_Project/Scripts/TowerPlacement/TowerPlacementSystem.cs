@@ -4,9 +4,8 @@ public class TowerPlacementSystem : MonoBehaviour
 {
     [Header("Events")]
     [SerializeField] private BuildPlatformClickedEvent buildPlatformClickedEvent;
-
-    [Header("Selected Tower")]
-    [SerializeField] private TurretData selectedTurret;
+    
+    private TurretData _selectedTurret;
 
     private void OnEnable()
     {
@@ -25,20 +24,22 @@ public class TowerPlacementSystem : MonoBehaviour
 
     public void SelectTurret(TurretData turretData)
     {
-        selectedTurret = turretData;
+        _selectedTurret = turretData;
+
+        Debug.Log($"Selected: {turretData.turretName}");
     }
 
     private void PlaceTurret(BuildPlatform platform)
     {
         if (platform.IsOccupied) return;
 
-        if (!selectedTurret)
+        if (!_selectedTurret)
         {
             Debug.LogWarning("No turret selected.");
             return;
         }
 
-        GameObject turretObject = Instantiate(selectedTurret.TurretPrefab);
+        GameObject turretObject = Instantiate(_selectedTurret.turretPrefab);
 
         Turret turret = turretObject.GetComponent<Turret>();
 
@@ -46,17 +47,17 @@ public class TowerPlacementSystem : MonoBehaviour
 
         platform.SetTurret(turret);
 
-        Debug.Log($"Placed {selectedTurret.name}");
+        Debug.Log($"Placed {_selectedTurret.turretName}");
     }
 
-    private void AlignTurret(Turret turret, Transform anchor)
+    private void AlignTurret(Turret turret, Transform transformAnchor)
     {
         Transform center = turret.CenterPoint;
 
         Vector3 offset = turret.transform.position - center.position;
 
-        turret.transform.position = anchor.position + offset;
+        turret.transform.position = transformAnchor.position + offset;
 
-        turret.transform.rotation = anchor.rotation;
+        turret.transform.rotation = transformAnchor.rotation;
     }
 }

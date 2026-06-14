@@ -294,7 +294,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TowerPlacementSystem
   buildPlatformClickedEvent: {fileID: 11400000, guid: e930907799ce4fd4b9e3a43f185bd41f, type: 2}
-  selectedTurret: {fileID: 11400000, guid: c3c2bb151b759e8499cf485a4682c0b0, type: 2}
 --- !u!4 &756262304
 Transform:
   m_ObjectHideFlags: 0
@@ -785,6 +784,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: CANVAS TurretShop
       objectReference: {fileID: 0}
+    - target: {fileID: 8369763906130868211, guid: 6651049b75d90a847b361ea59a4becd5, type: 3}
+      propertyPath: towerPlacementSystem
+      value: 
+      objectReference: {fileID: 756262303}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
